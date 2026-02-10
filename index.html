@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Jan Lönnqvist · Clark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { background: #030308; overflow-x: hidden; font-family: 'Space Grotesk', sans-serif; color: #fff; }
+        .scroll-container { height: 800vh; }
+        canvas#main { position: fixed; inset: 0; z-index: 1; }
+        canvas#text { display: none; }
+
+        .nav {
+            position: fixed;
+            top: 30px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 20px;
+            letter-spacing: -0.02em;
+        }
+        .nav-logo span { color: #0439d7; }
+        .nav-cta {
+            font-family: 'Space Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        .nav-cta:hover { background: #fff; color: #030308; }
+
+        .scroll-hint {
+            position: fixed;
+            bottom: 30px;
+            right: 40px;
+            font-family: 'Space Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            color: rgba(255,255,255,0.3);
+            z-index: 100;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 768px) {
+            .nav { left: 20px; right: 20px; }
+            .scroll-hint { right: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div class="scroll-container"></div>
+<canvas id="main"></canvas>
+<canvas id="text"></canvas>
+
+<nav class="nav">
+    <span class="nav-logo">CLARK<span>.</span></span>
+    <a href="mailto:jan.lonnqvist@windowslive.com" class="nav-cta">Connect</a>
+</nav>
+
+<div class="scroll-hint" id="scrollHint">Scroll to explore</div>
+
+<script>
+// Text content for each section
+const sections = [
+    {
+        label: "// INITIALIZING",
+        title: "Jan Lönnqvist",
+        text: "AI Creative Designer shaping\nsynthetic visuals that connect."
+    },
+    {
+        label: "// PHILOSOPHY",
+        title: "Human-Guided AI",
+        text: "AI is the brush, not the artist.\nI bring aesthetic judgment and\nbrand intuition."
+    },
+    {
+        label: "// EXPERIENCE",
+        title: "Background",
+        text: "GLS Group — 2024–\nRituals Cosmetics — 2022–24\nIKEA — 2019–20"
+    },
+    {
+        label: "// TOOLING",
+        title: "AI Stack",
+        text: "Midjourney / Veo3 / Sora\nClaude / Adobe CC"
+    },
+    {
+        label: "// WHY CLARK",
+        title: "Making Insurance\nBeautiful",
+        text: "Clark proves insurance can be\nlovable. I want to build that\nvisual language."
+    },
+    {
+        label: "// OUTPUT",
+        title: "Let's Generate",
+        text: "jan.lonnqvist@windowslive.com\n→ View Portfolio"
+    }
+];
+
+// Create text texture
+const textCanvas = document.getElementById('text');
+const textCtx = textCanvas.getContext('2d');
+textCanvas.width = 1024;
+textCanvas.height = 1024;
+
+function renderTextTexture(sectionIndex, reveal) {
+    const section = sections[sectionIndex];
+
+    textCtx.fillStyle = '#000';
+    textCtx.fillRect(0, 0, 1024, 1024);
+
+    const alpha = Math.min(reveal * 2, 1);
+
+    // Center everything
+    const centerX = 512;
+    const startY = 380;
+
+    // Label - smaller
+    textCtx.font = '500 18px "Space Mono", monospace';
+    textCtx.fillStyle = `rgba(4, 57, 215, ${alpha})`;
+    textCtx.textAlign = 'center';
+    textCtx.fillText(section.label, centerX, startY);
+
+    // Title - medium size
+    textCtx.font = '600 48px "Space Grotesk", sans-serif';
+    textCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    const titleLines = section.title.split('\n');
+    titleLines.forEach((line, i) => {
+        textCtx.fillText(line, centerX, startY + 50 + i * 55);
+    });
+
+    // Body text - smaller
+    textCtx.font = '400 20px "Space Grotesk", sans-serif';
+    textCtx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.75})`;
+    const textLines = section.text.split('\n');
+    const titleOffset = titleLines.length * 55;
+    textLines.forEach((line, i) => {
+        textCtx.fillText(line, centerX, startY + 50 + titleOffset + 30 + i * 28);
+    });
+}
+
+// Main WebGL canvas
+const canvas = document.getElementById('main');
+const gl = canvas.getContext('webgl2');
+
+function resize() {
+    canvas.width = innerWidth * devicePixelRatio;
+    canvas.height = innerHeight * devicePixelRatio;
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+addEventListener('resize', resize);
+
+const vertexShader = `#version 300 es
+in vec2 a_position;
+out vec2 vUv;
+void main() {
+    vUv = a_position * 0.5 + 0.5;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+const fragmentShader = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+uniform float uTime;
+uniform float uScroll;
+uniform vec2 uResolution;
+uniform sampler2D uTextTexture;
+
+#define MAX_STEPS 80
+#define MAX_DIST 50.0
+#define SURF_DIST 0.003
+
+mat2 rot2D(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+
+float smin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+float metaballs(vec3 p, float t) {
+    float d = MAX_DIST;
+
+    // Central large blob
+    vec3 p0 = p;
+    p0 += vec3(sin(t * 0.7) * 0.3, cos(t * 0.5) * 0.4, sin(t * 0.6) * 0.2);
+    d = sdSphere(p0, 1.5 + sin(t * 0.8) * 0.2);
+
+    // Orbiting blobs
+    for (int i = 0; i < 6; i++) {
+        float fi = float(i);
+        float phase = fi * 1.047 + t * 0.4;
+        float vertPhase = fi * 0.8 + t * 0.3;
+        float radius = 2.0 + sin(t * 0.5 + fi) * 0.5;
+
+        vec3 offset = vec3(cos(phase) * radius, sin(vertPhase) * 1.0, sin(phase) * radius);
+        float size = 0.5 + sin(t * 0.7 + fi * 2.0) * 0.15;
+        float blob = sdSphere(p - offset, size);
+        d = smin(d, blob, 0.7 + sin(t * 0.4 + fi) * 0.2);
+    }
+
+    // Smaller particles
+    for (int i = 0; i < 8; i++) {
+        float fi = float(i);
+        float angle = fi * 0.785 + t * 0.2;
+        float vangle = fi * 0.5 + t * 0.15;
+
+        vec3 offset = vec3(
+            cos(angle) * (3.5 + sin(t + fi) * 0.5),
+            sin(vangle) * 1.5,
+            sin(angle) * (3.5 + cos(t * 0.8 + fi) * 0.5)
+        );
+        float particle = sdSphere(p - offset, 0.18 + sin(t + fi) * 0.06);
+        d = smin(d, particle, 0.4);
+    }
+
+    return d;
+}
+
+float scene(vec3 p, float t) {
+    return metaballs(p, t);
+}
+
+vec3 getNormal(vec3 p, float t) {
+    vec2 e = vec2(0.001, 0.0);
+    return normalize(vec3(
+        scene(p + e.xyy, t) - scene(p - e.xyy, t),
+        scene(p + e.yxy, t) - scene(p - e.yxy, t),
+        scene(p + e.yyx, t) - scene(p - e.yyx, t)
+    ));
+}
+
+float rayMarch(vec3 ro, vec3 rd, float t) {
+    float d = 0.0;
+    for (int i = 0; i < MAX_STEPS; i++) {
+        vec3 p = ro + rd * d;
+        float ds = scene(p, t);
+        d += ds * 0.8;
+        if (d > MAX_DIST || ds < SURF_DIST) break;
+    }
+    return d;
+}
+
+vec3 envMap(vec3 rd) {
+    float t = rd.y * 0.5 + 0.5;
+    vec3 sky = mix(vec3(0.02, 0.03, 0.08), vec3(0.05, 0.1, 0.2), t);
+    float light1 = smoothstep(0.7, 1.0, dot(rd, normalize(vec3(1.0, 1.0, -0.5))));
+    float light2 = smoothstep(0.8, 1.0, dot(rd, normalize(vec3(-1.0, 0.5, 0.5))));
+    sky += vec3(1.0) * light1 * 0.3;
+    sky += vec3(0.016, 0.224, 0.843) * light2 * 0.4;
+    return sky;
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+    float scroll = uScroll * 10.0;
+    float t = uTime * 0.6;
+
+    // Camera - more rotation per scroll
+    vec3 ro = vec3(0.0, 0.0, -6.0 + scroll * 0.2);
+    ro.xz *= rot2D(scroll * 0.4);
+    ro.y += sin(scroll * 0.3) * 1.5;
+
+    vec3 lookAt = vec3(0.0);
+    vec3 forward = normalize(lookAt - ro);
+    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+    vec3 up = cross(forward, right);
+    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
+
+    float d = rayMarch(ro, rd, t);
+    vec3 col = envMap(rd);
+
+    if (d < MAX_DIST) {
+        vec3 p = ro + rd * d;
+        vec3 n = getNormal(p, t);
+
+        vec3 refl = reflect(rd, n);
+        vec3 reflCol = envMap(refl);
+        float fresnel = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
+
+        // Glass material
+        vec3 baseCol = vec3(0.016, 0.224, 0.843) * 0.3;
+        float sss = pow(max(dot(rd, -n), 0.0), 2.0);
+        baseCol += vec3(0.1, 0.3, 0.8) * sss * 0.3;
+
+        // Specular
+        vec3 L1 = normalize(vec3(1.0, 2.0, -1.0));
+        vec3 L2 = normalize(vec3(-2.0, 1.0, 0.5));
+        float spec1 = pow(max(dot(refl, L1), 0.0), 64.0);
+        float spec2 = pow(max(dot(refl, L2), 0.0), 32.0);
+
+        col = mix(baseCol, reflCol, fresnel * 0.8);
+        col += vec3(1.0) * spec1 * 0.8;
+        col += vec3(0.2, 0.5, 1.0) * spec2 * 0.4;
+        col += vec3(0.016, 0.224, 0.843) * fresnel * 0.5;
+
+        // SCREEN-SPACE TEXT - follows camera, always visible
+        // Project surface point to screen space
+        vec2 screenPos = uv;
+
+        // Add lens distortion based on surface normal relative to view
+        vec3 viewNormal = n;
+        vec2 lensDistort = viewNormal.xy * 0.12;
+
+        // Text UV from screen position + lens effect
+        vec2 textUV = (screenPos + lensDistort) * 0.9 + 0.5;
+        textUV.y = 1.0 - textUV.y;
+
+        float facing = max(dot(n, -rd), 0.0);
+
+        if (textUV.x > 0.0 && textUV.x < 1.0 && textUV.y > 0.0 && textUV.y < 1.0) {
+            vec4 textSample = texture(uTextTexture, textUV);
+            float textIntensity = max(textSample.r, max(textSample.g, textSample.b));
+
+            // Text visible on all front surfaces, follows camera
+            float blend = textIntensity * 0.93 * smoothstep(0.0, 0.4, facing);
+            col = mix(col, textSample.rgb * 1.35, blend);
+        }
+
+        // Depth fog
+        float fog = 1.0 - exp(-d * 0.08);
+        col = mix(col, envMap(rd), fog * 0.5);
+    }
+
+    // Post
+    col = pow(col, vec3(0.85));
+    col *= 1.1;
+    col = clamp(col, 0.0, 1.0);
+
+    vec2 vuv = vUv - 0.5;
+    col *= 1.0 - dot(vuv, vuv) * 0.4;
+
+    fragColor = vec4(col, 1.0);
+}`;
+
+function createShader(type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(shader));
+    }
+    return shader;
+}
+
+const vs = createShader(gl.VERTEX_SHADER, vertexShader);
+const fs = createShader(gl.FRAGMENT_SHADER, fragmentShader);
+
+const program = gl.createProgram();
+gl.attachShader(program, vs);
+gl.attachShader(program, fs);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+const aPosition = gl.getAttribLocation(program, 'a_position');
+gl.enableVertexAttribArray(aPosition);
+gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+
+const uTime = gl.getUniformLocation(program, 'uTime');
+const uScroll = gl.getUniformLocation(program, 'uScroll');
+const uResolution = gl.getUniformLocation(program, 'uResolution');
+const uTextTexture = gl.getUniformLocation(program, 'uTextTexture');
+
+// Create texture for text
+const texture = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, texture);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+const scrollHint = document.getElementById('scrollHint');
+let scroll = 0, targetScroll = 0;
+let currentSection = 0;
+const maxScroll = document.querySelector('.scroll-container').offsetHeight - innerHeight;
+
+addEventListener('scroll', () => {
+    targetScroll = scrollY / maxScroll;
+}, { passive: true });
+
+// Wait for fonts to load
+document.fonts.ready.then(() => {
+    renderTextTexture(0, 1);
+
+    function animate(time) {
+        scroll += (targetScroll - scroll) * 0.05;
+
+        // Determine which section to show
+        const sectionProgress = scroll * sections.length;
+        const newSection = Math.min(Math.floor(sectionProgress), sections.length - 1);
+        const sectionReveal = sectionProgress - Math.floor(sectionProgress);
+
+        if (newSection !== currentSection) {
+            currentSection = newSection;
+        }
+
+        // Update text texture
+        renderTextTexture(currentSection, sectionReveal + 0.5);
+
+        // Upload texture
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+
+        gl.uniform1f(uTime, time * 0.001);
+        gl.uniform1f(uScroll, scroll);
+        gl.uniform2f(uResolution, canvas.width, canvas.height);
+        gl.uniform1i(uTextTexture, 0);
+
+        scrollHint.style.opacity = 1 - scroll * 3;
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(animate);
+    }
+
+    animate(0);
+});
+</script>
+</body>
+</html>
