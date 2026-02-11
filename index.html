@@ -56,9 +56,39 @@
             text-transform: uppercase;
         }
 
+        .portfolio-link {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 0.15em;
+            color: #fff;
+            text-decoration: none;
+            padding: 14px 28px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(4, 57, 215, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            text-transform: uppercase;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s ease;
+        }
+        .portfolio-link.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .portfolio-link:hover {
+            background: #0439d7;
+            border-color: #0439d7;
+        }
+
         @media (max-width: 768px) {
             .nav { left: 20px; right: 20px; }
             .scroll-hint { right: 20px; }
+            .portfolio-link { bottom: 60px; font-size: 10px; padding: 12px 20px; }
         }
     </style>
 </head>
@@ -73,6 +103,7 @@
 </nav>
 
 <div class="scroll-hint" id="scrollHint">Scroll to explore</div>
+<a href="https://janlonnqvist.com" target="_blank" class="portfolio-link" id="portfolioLink">View Portfolio →</a>
 
 <script>
 // Text content for each section
@@ -105,7 +136,7 @@ const sections = [
     {
         label: "// OUTPUT",
         title: "Let's Generate",
-        text: "jan.lonnqvist@windowslive.com\n→ View Portfolio"
+        text: "jan.lonnqvist@windowslive.com"
     }
 ];
 
@@ -392,6 +423,7 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 const scrollHint = document.getElementById('scrollHint');
+const portfolioLink = document.getElementById('portfolioLink');
 let scroll = 0, targetScroll = 0;
 let currentSection = 0;
 const maxScroll = document.querySelector('.scroll-container').offsetHeight - innerHeight;
@@ -429,6 +461,13 @@ document.fonts.ready.then(() => {
         gl.uniform1i(uTextTexture, 0);
 
         scrollHint.style.opacity = 1 - scroll * 3;
+
+        // Show portfolio link on last section
+        if (currentSection === sections.length - 1) {
+            portfolioLink.classList.add('visible');
+        } else {
+            portfolioLink.classList.remove('visible');
+        }
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         requestAnimationFrame(animate);
